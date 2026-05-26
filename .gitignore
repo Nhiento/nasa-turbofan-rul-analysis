@@ -1,0 +1,12 @@
+
+data/raw/
+
+__pycache__/
+*.pyc
+.DS_Store
+.ipynb_checkpoints/
+
+# Large intermediate files
+data/processed/cleaned_master.csv
+data/processed/raw_train.csv
+data/processed/raw_test.csv
