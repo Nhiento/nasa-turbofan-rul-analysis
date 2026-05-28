@@ -4,15 +4,6 @@ NASA C-MAPSS Turbofan Engine RUL Analysis
 Step 1: Data Acquisition & Synthetic Data Generation
 ================================================================================
 Dataset: NASA C-MAPSS (Commercial Modular Aero-Propulsion System Simulation)
-Source:  https://www.kaggle.com/datasets/behrad3d/nasa-cmaps
-         OR: https://phm-datasets.s3.amazonaws.com/NASA/6.+Turbofan+Engine+Degradation+Simulation+Data+Set.zip
-
-INSTRUCTIONS TO GET REAL DATA:
-1. Option A (Kaggle): kaggle datasets download -d behrad3d/nasa-cmaps
-2. Option B (NASA): Download from the link above and extract .txt files
-3. Place train_FD001.txt, test_FD001.txt, RUL_FD001.txt in ./data/raw/
-
-This script auto-generates realistic synthetic data if real files aren't found.
 ================================================================================
 """
 
