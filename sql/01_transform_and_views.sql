@@ -2,14 +2,6 @@
 -- NASA C-MAPSS Turbofan Engine RUL Analysis
 -- SQL Data Layer — Transformations, Integrity Checks & Analytical Views
 -- ================================================================================
--- Compatible with: SQLite (default), PostgreSQL, MySQL (minor syntax changes noted)
--- Run order:
---   1. CREATE tables
---   2. Import CSVs (via tool or COPY/import wizard)
---   3. Run transformations
---   4. Create views used by Power BI
--- ================================================================================
-
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- SECTION 1: CREATE TABLES
