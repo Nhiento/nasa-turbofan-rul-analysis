@@ -125,19 +125,10 @@ nasa_rul_project/
 │   └── 01_transform_and_views.sql
 ├── powerbi_guide/
 │   └── POWERBI_SETUP.md
-└── README.md           ← You are here
+└── README.md           
 ```
 
 ---
-
-## Resume Bullet Point
-
-> "Built an end-to-end predictive maintenance platform on the NASA C-MAPSS turbofan
-> dataset: engineered 84+ features in Python (rolling statistics, health index,
-> degradation staging), authored SQL analytical views with window-function anomaly
-> detection, and delivered a 4-page Power BI fleet health dashboard enabling
-> data-driven engine maintenance scheduling."
-
 ---
 
 ## Skills Demonstrated
