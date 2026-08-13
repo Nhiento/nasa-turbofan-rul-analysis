@@ -148,7 +148,7 @@ def drop_constant_sensors(df: pd.DataFrame) -> pd.DataFrame:
     for col in sensor_cols:
         mean_val = df[col].mean()
         cv = df[col].std() / (abs(mean_val) + 1e-9)
-        if cv < 0.001:
+        if cv < 0.0001:
             low_var.append(col)
 
     to_drop = list(set(CONSTANT_SENSORS + low_var))
@@ -258,15 +258,14 @@ def add_health_index(df: pd.DataFrame) -> pd.DataFrame:
     normalised = pd.DataFrame(index=df.index)
 
     # Sensors that decrease as engine degrades (RUL decreases)
-    DECREASING = {"sensor_07", "sensor_08", "sensor_09",
-                  "sensor_11", "sensor_15"}
+    DECREASING = {"sensor_07", "sensor_12", "sensor_20",
+                  "sensor_21"}
 
     for sensor in active_sensors:
-        col = df[sensor]
-        min_v, max_v = col.min(), col.max()
-        rng = max_v - min_v if max_v != min_v else 1.0
-        norm = (col - min_v) / rng
-        # Flip decreasing sensors so all increase → degraded
+        col = df.get(f"{sensor}_roll10_mean", df[sensor])
+        lo, hi = col.quantile(0.01), col.quantile(0.99)
+        rng = hi - lo if hi != lo else 1.0
+        norm = ((col - lo) / rng).clip(0, 1)
         if sensor in DECREASING:
             norm = 1 - norm
         normalised[sensor] = norm
@@ -413,7 +412,7 @@ def export_datasets(df: pd.DataFrame) -> None:
     # Power BI primary fact table (select columns for readability)
     pbi_cols = (
         ["engine_id", "cycle", "cycle_pct", "RUL", "RUL_capped",
-         "health_index", "health_stage", "op_regime",
+         "health_index", "health_stage", 
          "op_setting_1", "op_setting_2", "op_setting_3"]
         + [c for c in INFORMATIVE if c in df.columns]
     )
@@ -427,7 +426,6 @@ def export_datasets(df: pd.DataFrame) -> None:
         final_health  = ("health_index", "last"),
         min_health    = ("health_index", "min"),
         mean_health   = ("health_index", "mean"),
-        primary_regime= ("op_regime",    lambda x: x.mode()[0]),
         failure_stage = ("health_stage", "last"),
     ).reset_index()
     eng_summary.to_csv(OUT_DIR / "powerbi_engine_summary.csv", index=False)
@@ -456,7 +454,7 @@ if __name__ == "__main__":
     df = compute_rul(df)
     df = add_rolling_features(df)
     df = add_health_index(df)
-    df = add_operational_regime(df)
+    #df = add_operational_regime(df)
     df = add_cycle_norm(df)
 
     plot_eda(df)
