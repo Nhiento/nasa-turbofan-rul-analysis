@@ -1,0 +1,114 @@
+{
+  "data_source": "REAL NASA C-MAPSS FD001",
+  "rul_cap": 125,
+  "dropped_flat_sensors": [
+    "sensor_01",
+    "sensor_05",
+    "sensor_06",
+    "sensor_10",
+    "sensor_16",
+    "sensor_18",
+    "sensor_19"
+  ],
+  "sensors_used": [
+    "sensor_02",
+    "sensor_03",
+    "sensor_04",
+    "sensor_07",
+    "sensor_08",
+    "sensor_09",
+    "sensor_11",
+    "sensor_12",
+    "sensor_13",
+    "sensor_14",
+    "sensor_15",
+    "sensor_17",
+    "sensor_20",
+    "sensor_21"
+  ],
+  "rolling_windows": [
+    5,
+    10,
+    20
+  ],
+  "rolling_feature_count": 84,
+  "health_index_params": {
+    "sensor_02": {
+      "direction": 1,
+      "healthy": 642.386,
+      "failed": 643.54
+    },
+    "sensor_03": {
+      "direction": 1,
+      "healthy": 1586.942,
+      "failed": 1600.8335
+    },
+    "sensor_04": {
+      "direction": 1,
+      "healthy": 1402.75475,
+      "failed": 1426.3065000000001
+    },
+    "sensor_07": {
+      "direction": -1,
+      "healthy": 553.97,
+      "failed": 551.7090000000001
+    },
+    "sensor_08": {
+      "direction": 1,
+      "healthy": 2388.06,
+      "failed": 2388.215
+    },
+    "sensor_09": {
+      "direction": 1,
+      "healthy": 9056.652999999998,
+      "failed": 9077.9695
+    },
+    "sensor_11": {
+      "direction": 1,
+      "healthy": 47.36414285714285,
+      "failed": 48.072
+    },
+    "sensor_12": {
+      "direction": -1,
+      "healthy": 521.942,
+      "failed": 519.9705
+    },
+    "sensor_13": {
+      "direction": 1,
+      "healthy": 2388.0582857142854,
+      "failed": 2388.218
+    },
+    "sensor_14": {
+      "direction": 1,
+      "healthy": 8138.154,
+      "failed": 8149.219499999999
+    },
+    "sensor_15": {
+      "direction": 1,
+      "healthy": 8.4184,
+      "failed": 8.511185000000001
+    },
+    "sensor_17": {
+      "direction": 1,
+      "healthy": 392.25,
+      "failed": 395.9
+    },
+    "sensor_20": {
+      "direction": -1,
+      "healthy": 38.934,
+      "failed": 38.4905
+    },
+    "sensor_21": {
+      "direction": -1,
+      "healthy": 23.36408142857143,
+      "failed": 23.093535
+    }
+  },
+  "thresholds": {
+    "warning": 0.3992,
+    "alert": 0.6735,
+    "rapid_rise_5cy": 0.1786
+  },
+  "alert_persistence_cycles": 3,
+  "test_spearman_hi_vs_true_rul": -0.819
+}
