@@ -9,6 +9,7 @@ data/processed/*.csv
 !data/processed/rul_predictions.csv
 data/processed/data_source.txt
 data/turbofan.db
+data/powerbi/
 
 # Python / OS
 __pycache__/

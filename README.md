@@ -21,7 +21,8 @@ data to answer three questions:
 | Health Index, data-driven alert thresholds, lead-time analysis | ✅ Done |
 | SQLite layer: integrity checks, anomaly log, analytical views | ✅ Done |
 | RUL prediction model (baseline → gradient boosting, engine-grouped CV) | ✅ Done |
-| Power BI dashboard | 🔜 Planned |
+| Power BI data model and measures (`05_powerbi_export.py`, `powerbi/measures.dax`) | ✅ Done |
+| Power BI report pages | 🔜 In progress |
 
 ---
 
@@ -83,6 +84,8 @@ python/04_rul_model.py          RUL model: cross-validation, test scoring,
                                 likely range, figures 06–08
                                 ──►  rul_predictions.csv, model_results.json,
                                      table rul_predictions in data/turbofan.db
+python/05_powerbi_export.py     one Excel workbook, seven tables, ready for Power BI
+                                ──►  data/powerbi/turbofan_powerbi.xlsx
 ```
 
 Run from the project folder:
@@ -93,6 +96,7 @@ python python/01_data_acquisition.py
 python python/02_data_cleaning.py
 python python/03_load_sqlite.py
 python python/04_rul_model.py
+python python/05_powerbi_export.py
 ```
 
 **Train/test discipline:** every parameter (which sensors to drop, each sensor's
@@ -261,10 +265,29 @@ Holding the model to the **same "3 cycles in a row" rule** ("predicted RUL under
 on most engines; the model catches the engines that tolerate more wear before
 failing, and gives a planner a number of cycles instead of a color.
 
+## Power BI (`05_powerbi_export.py`, `powerbi/measures.dax`)
+
+`05_powerbi_export.py` writes `data/powerbi/turbofan_powerbi.xlsx`: one Excel table
+per sheet, already shaped as a small star schema, so Power BI needs no clean-up.
+
+| Table | Rows | Used for |
+|---|---|---|
+| `Engines` | 100 | Training fleet: life, health, alert timing |
+| `Readings` | 20,631 | Health Index per engine per cycle |
+| `SensorReadings` | 288,834 | Sensor values (raw and wear-scaled 0–1) for the deep dive |
+| `Sensors` | 14 | Sensor names and healthy / failed levels |
+| `MaintenanceQueue` | 100 | Test engines: Health Index, model forecast and range, action, truth |
+| `Thresholds` | 3 | Warning / Alert / rapid-rise levels |
+| `ModelMetrics` | 3 | Error of each model in the ladder |
+
+Relationships: `Engines[engine_id]` → `Readings` and `SensorReadings`;
+`Sensors[sensor_id]` → `SensorReadings`. `powerbi/measures.dax` holds every measure,
+each with the value it should show, for three pages: fleet overview, engine deep
+dive, and maintenance queue. The same three pages map to an AVEVA PI Vision display.
+
 ## Next steps
 
-1. **Dashboard** — fleet overview, engine deep dive and maintenance queue (Power BI
-   on `data/turbofan.db`; the same layout maps to an AVEVA PI Vision display).
+1. **Dashboard** — finish the three Power BI report pages on the workbook above.
 2. **Combined alert** — raise an alert when either the Health Index or the model
    fires, and measure lead time and false alarms together.
 3. **FD002–FD004** — six operating conditions and a second fault mode; sensors
@@ -279,13 +302,17 @@ nasa_rul_project/
 ├── data/
 │   ├── raw/            ← NASA .txt files
 │   ├── processed/      ← cleaned CSVs, thresholds, pipeline_params.json
-│   ├── figures/        ← EDA figures
+│   ├── figures/        ← EDA and model figures
+│   ├── powerbi/        ← turbofan_powerbi.xlsx (built by step 5)
 │   └── turbofan.db     ← SQLite database (built by step 3)
 ├── python/
 │   ├── 01_data_acquisition.py
 │   ├── 02_data_cleaning.py
 │   ├── 03_load_sqlite.py
-│   └── 04_rul_model.py
+│   ├── 04_rul_model.py
+│   └── 05_powerbi_export.py
+├── powerbi/
+│   └── measures.dax
 ├── sql/
 │   ├── 01_schema.sql
 │   └── 02_checks_anomalies_views.sql
