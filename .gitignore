@@ -6,6 +6,7 @@ data/processed/*.csv
 !data/processed/powerbi_engine_summary.csv
 !data/processed/hi_thresholds.csv
 !data/processed/test_engine_status.csv
+!data/processed/rul_predictions.csv
 data/processed/data_source.txt
 data/turbofan.db
 
