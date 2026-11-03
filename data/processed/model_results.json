@@ -1,0 +1,111 @@
+{
+  "data_source": "REAL NASA C-MAPSS FD001",
+  "rul_cap": 125,
+  "n_features": 87,
+  "cv": "5-fold GroupKFold by engine_id on all training rows (target capped at 125)",
+  "test": "one prediction per test engine at its last cycle vs RUL_FD001.txt",
+  "models": {
+    "Baseline (average)": {
+      "cv_rmse": 41.67,
+      "cv_rmse_fold_std": 0.0,
+      "test_rmse": 43.07,
+      "test_rmse_vs_capped_truth": 41.94,
+      "test_nasa_score": 33629.2,
+      "test_mean_error": 11.31
+    },
+    "Linear (Ridge)": {
+      "cv_rmse": 16.84,
+      "cv_rmse_fold_std": 0.81,
+      "test_rmse": 18.83,
+      "test_rmse_vs_capped_truth": 17.51,
+      "test_nasa_score": 567.7,
+      "test_mean_error": 0.01
+    },
+    "Gradient boosting": {
+      "cv_rmse": 14.9,
+      "cv_rmse_fold_std": 0.69,
+      "test_rmse": 17.56,
+      "test_rmse_vs_capped_truth": 16.34,
+      "test_nasa_score": 542.6,
+      "test_mean_error": 0.51
+    }
+  },
+  "range_coverage_p10_p90": 0.8,
+  "comparison_with_hi_alerts": {
+    "model_alert_rule": {
+      "engines_alerted": 100,
+      "median_warning_cycles": 20.0,
+      "warning_iqr": [
+        17.0,
+        25.0
+      ],
+      "warning_min_max": [
+        12.0,
+        39.0
+      ]
+    },
+    "train_engines_missed_by_hi": [
+      {
+        "engine_id": 57,
+        "flagged": true,
+        "cycles_of_warning": 12
+      },
+      {
+        "engine_id": 65,
+        "flagged": true,
+        "cycles_of_warning": 15
+      },
+      {
+        "engine_id": 72,
+        "flagged": true,
+        "cycles_of_warning": 15
+      },
+      {
+        "engine_id": 90,
+        "flagged": true,
+        "cycles_of_warning": 13
+      }
+    ],
+    "test_normal_but_under_25": [
+      {
+        "engine_id": 37,
+        "true_rul": 21,
+        "predicted_rul": 33.2,
+        "model_action": "Plan within next window"
+      },
+      {
+        "engine_id": 41,
+        "true_rul": 18,
+        "predicted_rul": 47.2,
+        "model_action": "Plan within next window"
+      }
+    ],
+    "action_vs_truth": {
+      "No action": {
+        "<25": 0,
+        "25-49": 2,
+        "50+": 67
+      },
+      "Plan within next window": {
+        "<25": 4,
+        "25-49": 8,
+        "50+": 3
+      },
+      "Schedule now": {
+        "<25": 15,
+        "25-49": 1,
+        "50+": 0
+      }
+    }
+  },
+  "sensor_importance_top8": {
+    "Health Index": 7.81,
+    "Cycle count": 4.15,
+    "Health Index slope": 3.96,
+    "11 \u00b7 HPC static pressure": 0.65,
+    "09 \u00b7 Core speed": 0.59,
+    "14 \u00b7 Corrected core speed": 0.46,
+    "20 \u00b7 HPT coolant bleed": 0.31,
+    "15 \u00b7 Bypass ratio": 0.15
+  }
+}

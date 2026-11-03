@@ -359,8 +359,10 @@ def plot_eda(train: pd.DataFrame, sensors: list, th: dict, lead: pd.DataFrame, s
 # ─────────────────────────────────────────────────────────────────────────────
 # 12. EXPORT
 # ─────────────────────────────────────────────────────────────────────────────
-def export(train, sensors, lead, status, th, hi_params, flat, rho, src):
+def export(train, test, sensors, lead, status, th, hi_params, flat, rho, src):
     train.to_csv(OUT_DIR / "cleaned_master.csv", index=False)
+    # Test engines with the same features + Health Index, used by 04_rul_model.py
+    test.to_csv(OUT_DIR / "cleaned_test.csv", index=False)
 
     main_cols = (["engine_id", "cycle", "cycle_pct", "RUL", "RUL_capped", "rul_band",
                   "health_index", "alert_level"] + sensors)
@@ -388,7 +390,7 @@ def export(train, sensors, lead, status, th, hi_params, flat, rho, src):
         "alert_persistence_cycles": ALERT_PERSISTENCE,
         "test_spearman_hi_vs_true_rul": round(float(rho), 3),
     }, indent=2))
-    print(f"  [EXPORT] cleaned_master.csv ({train.shape[0]:,} × {train.shape[1]}), powerbi_main.csv, "
+    print(f"  [EXPORT] cleaned_master.csv ({train.shape[0]:,} × {train.shape[1]}), cleaned_test.csv, powerbi_main.csv, "
           f"powerbi_engine_summary.csv, powerbi_sensor_trends.csv, test_engine_status.csv, "
           f"hi_thresholds.csv, pipeline_params.json")
 
@@ -427,6 +429,6 @@ if __name__ == "__main__":
     status, rho = test_engine_status(test, test_rul)
 
     plot_eda(train, sensors, th, lead, src)
-    export(train, sensors, lead, status, th, hi_params, flat, rho, src)
+    export(train, test, sensors, lead, status, th, hi_params, flat, rho, src)
 
     print("\n  ✓ Done. Next: python python/03_load_sqlite.py\n")
