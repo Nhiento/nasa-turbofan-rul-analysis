@@ -1,16 +1,27 @@
 # NASA Turbofan Engine Remaining Useful Life (RUL) Analysis
-### Predictive maintenance analytics on NASA C-MAPSS FD001 — Python · SQL · Power BI
+### Predictive maintenance analytics on NASA C-MAPSS FD001 — Python · SQL · scikit-learn
 
 ---
+
+## At a glance
+
+Combining a sensor-based **Health Index alert** with a **machine learning forecast**
+of remaining life warned on **all 100** training engines before failure, a median of
+**27 cycles** ahead and never less than 12, and flagged **16 of the 19** in-service
+engines that truly had under 25 cycles left, with **no** false alarms on engines
+that still had 50 or more.
+
+![Predicted vs true cycles left for the 100 test engines](data/figures/07_predicted_vs_true.png)
 
 ## Project overview
 
 Jet engines are maintained on fixed schedules, which means servicing some engines
 too early and missing others that wear out fast. This project uses engine sensor
-data to answer two questions:
+data to answer three questions:
 
 1. **Can we tell how worn an engine is from its sensors alone?** → a Health Index
 2. **How much warning does that give before failure?** → alert thresholds and lead time
+3. **How many cycles does each engine have left?** → a Remaining Useful Life (RUL) model
 
 **Status**
 
@@ -19,8 +30,10 @@ data to answer two questions:
 | Data cleaning, validation, feature engineering | ✅ Done |
 | Health Index, data-driven alert thresholds, lead-time analysis | ✅ Done |
 | SQLite layer: integrity checks, anomaly log, analytical views | ✅ Done |
-| RUL prediction model (baseline → gradient boosting, engine-grouped CV) | 🔜 Next |
-| Power BI dashboard | 🔜 Planned |
+| RUL prediction model (baseline → gradient boosting, engine-grouped CV) | ✅ Done |
+| Power BI data model and measures (`05_powerbi_export.py`, `powerbi/measures.dax`) | ✅ Done |
+| Combined alert (Health Index OR model) | ✅ Done |
+| Power BI report pages | 🔜 In progress |
 
 ---
 
@@ -44,7 +57,9 @@ prognostics research.
 Each engine starts with a different, unknown amount of wear and manufacturing
 variation — so engines do not start at the same health level.
 
-Place `train_FD001.txt`, `test_FD001.txt` and `RUL_FD001.txt` in `data/raw/`.
+**Get the data:** download `CMAPSSData.zip` from NASA's Open Data Portal
+([CMAPSS Jet Engine Simulated Data](https://data.nasa.gov/dataset/cmapss-jet-engine-simulated-data)),
+unzip it, and place `train_FD001.txt`, `test_FD001.txt` and `RUL_FD001.txt` in `data/raw/`.
 (If they are missing, the scripts generate a clearly labelled synthetic stand-in
 so the pipeline can still be tested; its results are not reported here.)
 
@@ -78,15 +93,23 @@ python/02_data_cleaning.py      clean, features, Health Index, thresholds, figur
 python/03_load_sqlite.py        sql/01_schema.sql → load CSVs →
                                 sql/02_checks_anomalies_views.sql
                                 ──►  data/turbofan.db
+python/04_rul_model.py          RUL model: cross-validation, test scoring,
+                                likely range, figures 06–08
+                                ──►  rul_predictions.csv, model_results.json,
+                                     table rul_predictions in data/turbofan.db
+python/05_powerbi_export.py     one Excel workbook, seven tables, ready for Power BI
+                                ──►  data/powerbi/turbofan_powerbi.xlsx
 ```
 
 Run from the project folder:
 
 ```bash
-pip install pandas numpy matplotlib
+pip install -r requirements.txt
 python python/01_data_acquisition.py
 python python/02_data_cleaning.py
 python python/03_load_sqlite.py
+python python/04_rul_model.py
+python python/05_powerbi_export.py
 ```
 
 **Train/test discipline:** every parameter (which sensors to drop, each sensor's
@@ -156,11 +179,13 @@ Chosen from the data, not by eye:
 | Test engines in **Alert** that truly had < 25 cycles left | 10 of 14 (none had ≥ 50 left) |
 | Test engines in **Normal** that truly had ≥ 50 cycles left | 66 of 70 |
 
+![Health Index over life for 10 sample engines, with the Warning and Alert thresholds](data/figures/02_health_index_trajectories.png)
+
 **Limits of a single threshold.** 4 training engines failed without a sustained
 alert (their final HI was 0.66–0.70, just below 0.674), and 2 test engines read
 "Normal" with fewer than 25 cycles left. Engines tolerate different amounts of
 wear before failing, so a fleet-wide level misses some of them. This is the
-motivation for the next stage: a model that uses the **trend and rate** of
+motivation for the RUL model below: it uses the **trend and rate** of
 degradation, not just its current level.
 
 ### Figures (`data/figures/`)
@@ -172,6 +197,9 @@ degradation, not just its current level.
 | `03_sensor_rul_correlations.png` | All 14 kept sensors track wear; 11, 04, 12, 07 strongest |
 | `04_health_index_by_rul_band.png` | The HI separates the RUL bands cleanly |
 | `05_alert_lead_time.png` | How much warning the Alert threshold gives per engine |
+| `06_model_comparison.png` | Test error of each model in the ladder |
+| `07_predicted_vs_true.png` | Predicted vs true cycles left for the 100 test engines, with the likely range |
+| `08_feature_importance.png` | Which inputs the model relies on most |
 
 ---
 
@@ -199,15 +227,102 @@ already failed, so ranking them would be meaningless.
 
 ---
 
+## RUL prediction model (`04_rul_model.py`)
+
+**In one sentence:** the model looks at an engine's recent sensor history and its
+Health Index and estimates how many cycles it has left, with a likely range.
+
+### How it works
+
+| Step | What happens | Why |
+|---|---|---|
+| Inputs | 84 rolling features, Health Index, Health Index slope (change per cycle over the last 10 cycles), cycle count — **87 inputs** | The slope catches engines that are wearing fast, which a fixed threshold misses |
+| Target | RUL capped at 125 cycles | Early wear is invisible in the sensors (see above) |
+| Model ladder | 1) always guess the average → 2) linear (Ridge) → 3) gradient boosting (scikit-learn `HistGradientBoostingRegressor`) | Each model must beat the simpler one before it to earn its place |
+| Validation | 5-fold cross-validation **grouped by engine** | An engine is never in training and validation at once, so the score is honest |
+| Final test | One prediction per test engine, at its last recorded cycle, vs NASA's answer key | The engine-level forecast a planner would actually use |
+| Likely range | Two quantile models (10th and 90th percentile) | "About 18 cycles left, likely 10 to 30" is easier to plan around than one number |
+
+**Scoring.** RMSE is the typical miss in cycles. NASA's score punishes a late
+prediction (engine fails before you act) harder than an early one; lower is better.
+
+### Results
+
+![Test error of each model in the ladder](data/figures/06_model_comparison.png)
+
+| Model | Cross-validation RMSE | Test RMSE | NASA score |
+|---|---|---|---|
+| Baseline (always the average) | 41.7 | 43.1 | 33,629 |
+| Linear (Ridge) | 16.8 | 18.8 | 568 |
+| **Gradient boosting** | **14.9** | **17.6** | **543** |
+
+- Gradient boosting misses by **17.6 cycles** on a typical test engine
+  (16.3 if the answer key is also capped at 125, as many papers do), with almost
+  no bias: the average error is +0.5 cycles.
+- Predictions are tight near failure, where decisions are made, and wide early in
+  life, where wear is not yet visible (figure 07).
+- The true remaining life fell inside the 10–90% range for **80%** of test engines.
+- What the model uses most: the Health Index, the cycle count, and the Health Index
+  slope (figure 08), so the step-2 Health Index is the backbone of the forecast.
+
+### Does it fix the Health Index misses?
+
+Holding the model to the **same "3 cycles in a row" rule** ("predicted RUL under
+25 for 3 cycles in a row"), using predictions from models that never saw that engine:
+
+| Check | Health Index threshold | RUL model |
+|---|---|---|
+| Training engines alerted before failure | 96 / 100 | **100 / 100** |
+| Median warning before failure | **26 cycles** (IQR 10–35) | 20 cycles (IQR 17–25) |
+| The 4 engines the Health Index missed (57, 65, 72, 90) | missed | caught, 12–15 cycles ahead |
+| Test engines with < 25 cycles left, flagged "Schedule now" / "Alert" | 10 of 19 | **15 of 19** (other 4 → "Plan") |
+| Test engines flagged "Schedule now" / "Alert" that had 50+ cycles left | 0 | 0 |
+
+**Takeaway:** the two work best together. The Health Index gives earlier warning
+on most engines; the model catches the engines that tolerate more wear before
+failing, and gives a planner a number of cycles instead of a color.
+
+### Combined alert: Health Index OR model
+
+Raise an alert when **either** one fires (each still needs 3 cycles in a row).
+
+| Check | Health Index | RUL model | **Combined** |
+|---|---|---|---|
+| Training engines alerted before failure | 96 / 100 | 100 / 100 | **100 / 100** |
+| Median warning before failure | 26 cycles (IQR 10–35) | 20 cycles (IQR 17–25) | **27 cycles (IQR 18–36)** |
+| Shortest warning given | 1 cycle | 12 cycles | **12 cycles** |
+| Test engines with < 25 cycles left flagged urgent | 10 of 19 | 15 of 19 | **16 of 19** |
+| Urgent flags on engines with 50+ cycles left | 0 | 0 | **0** |
+
+The combined alert keeps the Health Index's early warning, picks up the engines it
+missed, and raises the worst case from 1 cycle of notice to 12, with no new false
+alarms on healthy engines. Its 20 urgent test flags are 16 engines under 25 cycles
+left and 4 with 25–49 left.
+
+## Power BI (`05_powerbi_export.py`, `powerbi/measures.dax`)
+
+`05_powerbi_export.py` writes `data/powerbi/turbofan_powerbi.xlsx`: one Excel table
+per sheet, already shaped as a small star schema, so Power BI needs no clean-up.
+
+| Table | Rows | Used for |
+|---|---|---|
+| `Engines` | 100 | Training fleet: life, health, alert timing |
+| `Readings` | 20,631 | Health Index per engine per cycle |
+| `SensorReadings` | 288,834 | Sensor values (raw and wear-scaled 0–1) for the deep dive |
+| `Sensors` | 14 | Sensor names and healthy / failed levels |
+| `MaintenanceQueue` | 100 | Test engines: Health Index, model forecast and range, action, truth |
+| `Thresholds` | 3 | Warning / Alert / rapid-rise levels |
+| `ModelMetrics` | 3 | Error of each model in the ladder |
+
+Relationships: `Engines[engine_id]` → `Readings` and `SensorReadings`;
+`Sensors[sensor_id]` → `SensorReadings`. `powerbi/measures.dax` holds every measure,
+each with the value it should show, for three pages: fleet overview, engine deep
+dive, and maintenance queue. The same three pages map to an AVEVA PI Vision display.
+
 ## Next steps
 
-1. **RUL model** — linear baseline, then gradient boosting on the rolling features;
-   cross-validation grouped by engine so no engine appears in both train and
-   validation folds; evaluated on the test set with RMSE and NASA's asymmetric
-   score (late predictions penalised more than early ones).
-2. **Power BI** — fleet overview, engine deep dive, maintenance queue, built on
-   `data/turbofan.db` or the processed CSVs.
-3. **FD002–FD004** — six operating conditions and a second fault mode; sensors
+1. **Dashboard** — finish the three Power BI report pages on the workbook above.
+2. **FD002–FD004** — six operating conditions and a second fault mode; sensors
    would need normalising per operating condition first.
 
 ---
@@ -219,15 +334,22 @@ nasa_rul_project/
 ├── data/
 │   ├── raw/            ← NASA .txt files
 │   ├── processed/      ← cleaned CSVs, thresholds, pipeline_params.json
-│   ├── figures/        ← EDA figures
+│   ├── figures/        ← EDA and model figures
+│   ├── powerbi/        ← turbofan_powerbi.xlsx (built by step 5)
 │   └── turbofan.db     ← SQLite database (built by step 3)
 ├── python/
 │   ├── 01_data_acquisition.py
 │   ├── 02_data_cleaning.py
-│   └── 03_load_sqlite.py
+│   ├── 03_load_sqlite.py
+│   ├── 04_rul_model.py
+│   └── 05_powerbi_export.py
+├── powerbi/
+│   └── measures.dax
 ├── sql/
 │   ├── 01_schema.sql
 │   └── 02_checks_anomalies_views.sql
+├── requirements.txt
+├── LICENSE
 └── README.md
 ```
 
@@ -236,3 +358,11 @@ nasa_rul_project/
 `Python` · `pandas` · `NumPy` · `Matplotlib` · `Data validation` · `Feature engineering`
 `Time-series smoothing` · `SQL (DDL, CTEs, window functions)` · `SQLite`
 `Predictive maintenance` · `Threshold design` · `Leakage-aware train/test design`
+`scikit-learn` · `Gradient boosting` · `Grouped cross-validation` · `Quantile regression`
+
+## Data source and license
+
+Data: A. Saxena, K. Goebel, D. Simon and N. Eklund, "Damage Propagation Modeling for
+Aircraft Engine Run-to-Failure Simulation," PHM08, Denver, CO, 2008; distributed by
+the [NASA Open Data Portal](https://data.nasa.gov/dataset/cmapss-jet-engine-simulated-data).
+Code: MIT License (see `LICENSE`).

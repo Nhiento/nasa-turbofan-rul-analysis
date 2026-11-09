@@ -1,0 +1,77 @@
+// ============================================================================
+// NASA turbofan predictive maintenance — Power BI measures
+// Load data/powerbi/turbofan_powerbi.xlsx (built by python/05_powerbi_export.py),
+// then add these measures. Values in [brackets] are what each should show
+// with no filters applied, so you can check your build.
+// ============================================================================
+
+// ---------- Page 1: Fleet overview (training engines, run to failure) ------
+
+Engines = DISTINCTCOUNT ( Engines[engine_id] )                       // [100]
+
+Avg Life (cycles) = AVERAGE ( Engines[life_cycles] )                 // [206.3]
+
+Shortest Life = MIN ( Engines[life_cycles] )                         // [128]
+
+Longest Life = MAX ( Engines[life_cycles] )                          // [362]
+
+Engines Alerted =
+    CALCULATE ( COUNTROWS ( Engines ), Engines[alerted_before_failure] = "Yes" )   // [96]
+
+Alert Rate = DIVIDE ( [Engines Alerted], [Engines] )                 // [96%]
+
+Median Warning (cycles) = MEDIAN ( Engines[alert_lead_cycles] )      // [26]
+
+Avg Health Index = AVERAGE ( Readings[health_index] )
+
+Warning Threshold =
+    CALCULATE ( MAX ( Thresholds[value] ), Thresholds[threshold] = "warning" )     // [0.3992]
+
+Alert Threshold =
+    CALCULATE ( MAX ( Thresholds[value] ), Thresholds[threshold] = "alert" )       // [0.6735]
+
+// ---------- Page 2: Engine deep dive (pick one engine in the slicer) -------
+
+Selected Life = MAX ( Engines[life_cycles] )                         // Engine 002: [287]
+
+First Alert Cycle = MAX ( Engines[first_alert_cycle] )               // Engine 002: [258]
+
+Warning Given (cycles) = MAX ( Engines[alert_lead_cycles] )          // Engine 002: [29]
+
+Final Health Index = MAX ( Engines[final_health] )                   // Engine 002: [1.22]
+
+Avg Wear (scaled) = AVERAGE ( SensorReadings[wear_scaled] )
+
+// ---------- Page 3: Maintenance queue (test engines, still running) --------
+
+Engines In Service = COUNTROWS ( MaintenanceQueue )                  // [100]
+
+Schedule Now =
+    CALCULATE ( COUNTROWS ( MaintenanceQueue ), MaintenanceQueue[model_action] = "Schedule now" )            // [16]
+
+Plan Ahead =
+    CALCULATE ( COUNTROWS ( MaintenanceQueue ), MaintenanceQueue[model_action] = "Plan within next window" ) // [15]
+
+No Action =
+    CALCULATE ( COUNTROWS ( MaintenanceQueue ), MaintenanceQueue[model_action] = "No action" )               // [69]
+
+HI Alerts =
+    CALCULATE ( COUNTROWS ( MaintenanceQueue ), MaintenanceQueue[hi_alert_level] = "Alert" )                 // [14]
+
+Predicted Cycles Left = AVERAGE ( MaintenanceQueue[predicted_rul] )
+
+Likely Range =
+    FORMAT ( MIN ( MaintenanceQueue[rul_low_p10] ), "0" ) & "–"
+        & FORMAT ( MAX ( MaintenanceQueue[rul_high_p90] ), "0" )   // per engine row, e.g. Engine 034: [5–26]
+
+Model RMSE (cycles) =
+    SQRT ( AVERAGEX ( MaintenanceQueue, MaintenanceQueue[error] ^ 2 ) )   // [17.6]
+
+Model Avg Miss (cycles) = AVERAGEX ( MaintenanceQueue, ABS ( MaintenanceQueue[error] ) )   // [13.2]
+
+Urgent Caught =
+    CALCULATE (
+        COUNTROWS ( MaintenanceQueue ),
+        MaintenanceQueue[model_action] = "Schedule now",
+        MaintenanceQueue[true_band] = "Under 25"
+    )                                                                // [15]
