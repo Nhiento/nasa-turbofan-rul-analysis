@@ -96,6 +96,20 @@
         "25-49": 1,
         "50+": 0
       }
+    },
+    "combined_alert": {
+      "rule": "Health Index Alert (3 in a row) OR predicted RUL < 25 (3 in a row)",
+      "train_engines_alerted": 100,
+      "train_median_warning_cycles": 27.0,
+      "train_warning_iqr": [
+        18.0,
+        36.0
+      ],
+      "train_min_warning_cycles": 12.0,
+      "test_urgent_flags": 20,
+      "test_urgent_with_under_25_left": 16,
+      "test_engines_with_under_25_left": 19,
+      "test_urgent_with_50_plus_left": 0
     }
   },
   "sensor_importance_top8": {

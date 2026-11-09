@@ -3,6 +3,16 @@
 
 ---
 
+## At a glance
+
+Combining a sensor-based **Health Index alert** with a **machine learning forecast**
+of remaining life warned on **all 100** training engines before failure, a median of
+**27 cycles** ahead and never less than 12, and flagged **16 of the 19** in-service
+engines that truly had under 25 cycles left, with **no** false alarms on engines
+that still had 50 or more.
+
+![Predicted vs true cycles left for the 100 test engines](data/figures/07_predicted_vs_true.png)
+
 ## Project overview
 
 Jet engines are maintained on fixed schedules, which means servicing some engines
@@ -22,6 +32,7 @@ data to answer three questions:
 | SQLite layer: integrity checks, anomaly log, analytical views | ✅ Done |
 | RUL prediction model (baseline → gradient boosting, engine-grouped CV) | ✅ Done |
 | Power BI data model and measures (`05_powerbi_export.py`, `powerbi/measures.dax`) | ✅ Done |
+| Combined alert (Health Index OR model) | ✅ Done |
 | Power BI report pages | 🔜 In progress |
 
 ---
@@ -46,7 +57,9 @@ prognostics research.
 Each engine starts with a different, unknown amount of wear and manufacturing
 variation — so engines do not start at the same health level.
 
-Place `train_FD001.txt`, `test_FD001.txt` and `RUL_FD001.txt` in `data/raw/`.
+**Get the data:** download `CMAPSSData.zip` from NASA's Open Data Portal
+([CMAPSS Jet Engine Simulated Data](https://data.nasa.gov/dataset/cmapss-jet-engine-simulated-data)),
+unzip it, and place `train_FD001.txt`, `test_FD001.txt` and `RUL_FD001.txt` in `data/raw/`.
 (If they are missing, the scripts generate a clearly labelled synthetic stand-in
 so the pipeline can still be tested; its results are not reported here.)
 
@@ -91,7 +104,7 @@ python/05_powerbi_export.py     one Excel workbook, seven tables, ready for Powe
 Run from the project folder:
 
 ```bash
-pip install pandas numpy matplotlib scikit-learn
+pip install -r requirements.txt
 python python/01_data_acquisition.py
 python python/02_data_cleaning.py
 python python/03_load_sqlite.py
@@ -166,6 +179,8 @@ Chosen from the data, not by eye:
 | Test engines in **Alert** that truly had < 25 cycles left | 10 of 14 (none had ≥ 50 left) |
 | Test engines in **Normal** that truly had ≥ 50 cycles left | 66 of 70 |
 
+![Health Index over life for 10 sample engines, with the Warning and Alert thresholds](data/figures/02_health_index_trajectories.png)
+
 **Limits of a single threshold.** 4 training engines failed without a sustained
 alert (their final HI was 0.66–0.70, just below 0.674), and 2 test engines read
 "Normal" with fewer than 25 cycles left. Engines tolerate different amounts of
@@ -233,6 +248,8 @@ prediction (engine fails before you act) harder than an early one; lower is bett
 
 ### Results
 
+![Test error of each model in the ladder](data/figures/06_model_comparison.png)
+
 | Model | Cross-validation RMSE | Test RMSE | NASA score |
 |---|---|---|---|
 | Baseline (always the average) | 41.7 | 43.1 | 33,629 |
@@ -265,6 +282,23 @@ Holding the model to the **same "3 cycles in a row" rule** ("predicted RUL under
 on most engines; the model catches the engines that tolerate more wear before
 failing, and gives a planner a number of cycles instead of a color.
 
+### Combined alert: Health Index OR model
+
+Raise an alert when **either** one fires (each still needs 3 cycles in a row).
+
+| Check | Health Index | RUL model | **Combined** |
+|---|---|---|---|
+| Training engines alerted before failure | 96 / 100 | 100 / 100 | **100 / 100** |
+| Median warning before failure | 26 cycles (IQR 10–35) | 20 cycles (IQR 17–25) | **27 cycles (IQR 18–36)** |
+| Shortest warning given | 1 cycle | 12 cycles | **12 cycles** |
+| Test engines with < 25 cycles left flagged urgent | 10 of 19 | 15 of 19 | **16 of 19** |
+| Urgent flags on engines with 50+ cycles left | 0 | 0 | **0** |
+
+The combined alert keeps the Health Index's early warning, picks up the engines it
+missed, and raises the worst case from 1 cycle of notice to 12, with no new false
+alarms on healthy engines. Its 20 urgent test flags are 16 engines under 25 cycles
+left and 4 with 25–49 left.
+
 ## Power BI (`05_powerbi_export.py`, `powerbi/measures.dax`)
 
 `05_powerbi_export.py` writes `data/powerbi/turbofan_powerbi.xlsx`: one Excel table
@@ -288,9 +322,7 @@ dive, and maintenance queue. The same three pages map to an AVEVA PI Vision disp
 ## Next steps
 
 1. **Dashboard** — finish the three Power BI report pages on the workbook above.
-2. **Combined alert** — raise an alert when either the Health Index or the model
-   fires, and measure lead time and false alarms together.
-3. **FD002–FD004** — six operating conditions and a second fault mode; sensors
+2. **FD002–FD004** — six operating conditions and a second fault mode; sensors
    would need normalising per operating condition first.
 
 ---
@@ -316,6 +348,8 @@ nasa_rul_project/
 ├── sql/
 │   ├── 01_schema.sql
 │   └── 02_checks_anomalies_views.sql
+├── requirements.txt
+├── LICENSE
 └── README.md
 ```
 
@@ -325,3 +359,10 @@ nasa_rul_project/
 `Time-series smoothing` · `SQL (DDL, CTEs, window functions)` · `SQLite`
 `Predictive maintenance` · `Threshold design` · `Leakage-aware train/test design`
 `scikit-learn` · `Gradient boosting` · `Grouped cross-validation` · `Quantile regression`
+
+## Data source and license
+
+Data: A. Saxena, K. Goebel, D. Simon and N. Eklund, "Damage Propagation Modeling for
+Aircraft Engine Run-to-Failure Simulation," PHM08, Denver, CO, 2008; distributed by
+the [NASA Open Data Portal](https://data.nasa.gov/dataset/cmapss-jet-engine-simulated-data).
+Code: MIT License (see `LICENSE`).

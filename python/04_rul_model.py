@@ -260,6 +260,32 @@ def compare_with_alerts(train, oof, preds):
     print("    " + table.to_string().replace("\n", "\n    "))
     summary["action_vs_truth"] = {a: {str(k): int(v) for k, v in row.items()}
                                   for a, row in table.iterrows()}
+
+    # ── Combined alert: raise it when EITHER the Health Index alert OR the model alert fires ──
+    # Training engines: warning time = whichever of the two fired first.
+    hi_lead = eng.set_index("engine_id")["alert_lead_cycles"].reindex(warning.index)
+    combined = pd.concat([hi_lead, warning], axis=1).max(axis=1)
+    # Test engines: "urgent" = HI level Alert OR model says Schedule now
+    urgent = (preds["hi_alert_level"] == "Alert") | (preds["model_action"] == "Schedule now")
+    under25, over50 = preds["true_rul"] < SCHEDULE_NOW, preds["true_rul"] >= PLAN_AHEAD
+    summary["combined_alert"] = {
+        "rule": "Health Index Alert (3 in a row) OR predicted RUL < 25 (3 in a row)",
+        "train_engines_alerted": int(combined.notna().sum()),
+        "train_median_warning_cycles": float(combined.median()),
+        "train_warning_iqr": [float(combined.quantile(.25)), float(combined.quantile(.75))],
+        "train_min_warning_cycles": float(combined.min()),
+        "test_urgent_flags": int(urgent.sum()),
+        "test_urgent_with_under_25_left": int((urgent & under25).sum()),
+        "test_engines_with_under_25_left": int(under25.sum()),
+        "test_urgent_with_50_plus_left": int((urgent & over50).sum()),
+    }
+    c = summary["combined_alert"]
+    print(f"  [COMBINED] HI alert OR model alert: {c['train_engines_alerted']}/100 training engines alerted, "
+          f"median warning {c['train_median_warning_cycles']:.0f} cycles "
+          f"(IQR {c['train_warning_iqr'][0]:.0f}–{c['train_warning_iqr'][1]:.0f}, min {c['train_min_warning_cycles']:.0f})")
+    print(f"             test: {c['test_urgent_flags']} urgent flags, {c['test_urgent_with_under_25_left']} of "
+          f"{c['test_engines_with_under_25_left']} engines with < 25 left caught, "
+          f"{c['test_urgent_with_50_plus_left']} flagged with 50+ left")
     return summary
 
 
